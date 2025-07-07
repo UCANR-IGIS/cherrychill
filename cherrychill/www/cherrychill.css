@@ -1,0 +1,48 @@
+.shinyhelper-container {
+  display: inline-block; 
+  position: relative; 
+  margin-left: 1em;
+}
+
+h2, h3 {font-weight:bold;}
+
+div#footer {
+  padding-left: 0;
+}
+
+div.caveats {
+  margin:1em 3em;
+  border:4px solid #a51313;
+  background-color:lightyellow;
+  padding:0.5em;
+}
+
+
+div.error-msg {color:red; margin:1em 0;}
+
+.iblock {display: inline-block;}
+
+.space_above_below {margin-top:0.5em; margin-bottom:0.5em;}
+
+button#cmd_calc {
+  display: block;
+  margin: 2em auto;
+}
+
+label#intxt_cropyear-label {
+  display:none;
+}
+
+
+/* ------
+Doesn't work
+div#outply_treechill {
+  border:1px solid gray;
+  padding:10px;
+}
+
+Not needed 
+.leaflet-container {
+  cursor: pointer !important;
+}
+-----*/
