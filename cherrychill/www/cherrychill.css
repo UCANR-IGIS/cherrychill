@@ -33,6 +33,9 @@ label#intxt_cropyear-label {
   display:none;
 }
 
+div#mymap {
+  cursor: crosshair !important;
+}
 
 /* ------
 Doesn't work

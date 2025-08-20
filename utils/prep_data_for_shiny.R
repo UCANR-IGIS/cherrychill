@@ -65,3 +65,81 @@ system.time(readRDS(gam_bzip_fn))       # 4.44
 system.time(readRDS(gam_xz_fn))         # 2.08
 
 
+#########################
+## CRAETE THE GEOJSON FILES FOR THE MAP
+
+library(tigris)
+library(sf)
+library(dplyr)
+library(fs)
+
+## From cherrychill_utils: I have found the "5m" resolution gives the best balance between precision and file size
+## (see sanjoaquin_zones2.R)
+
+sanjoaquin_kern_sf <- tigris::counties(state = "CA", cb = TRUE, resolution = "5m", progress_bar = FALSE) |> 
+  filter(COUNTYFP == "077" | COUNTYFP == "029" ) |> 
+  select(STATEFP, COUNTYFP, GEOID, NAME, LSAD) |> 
+  st_transform(4326)
+  
+head(sanjoaquin_kern_sf)
+names(sanjoaquin_kern_sf)
+sanjoaquin_kern_sf
+plot(sanjoaquin_kern_sf$geometry)
+
+sanjoaquin_kern_geojson <- fs::path(here::here("cherrychill/data"), "sanjoaquin_kern_bnd.geojson")
+
+st_write(sanjoaquin_kern_sf, dsn = sanjoaquin_kern_geojson)
+
+plot(sanjoaquin_kern_sf$geometry)
+
+## Do some tests with leaflet (which wasn't showing up in the map)
+library(leaflet)
+
+leaflet() %>% addTiles()
+
+leaflet(data = sanjoaquin_kern_sf) |> 
+  addPolygons()
+
+leaflet(data = sanjoaquin_kern_sf) |> 
+  addTiles(group = "Open Street Map") |> 
+  addPolygons()
+
+leaflet(data = sanjoaquin_kern_sf) |> 
+  addProviderTiles("Esri.WorldImagery", group = "Satellite") |> 
+  addPolygons()
+
+leaflet(data = sanjoaquin_kern_sf) |> 
+  addTiles(group = "Open Street Map") |> 
+  addProviderTiles("Esri.WorldImagery", group = "Satellite") |> 
+  addLayersControl(baseGroups = c("Open Street Map", "Satellite"),
+                   options = layersControlOptions(collapsed = FALSE)) |>  
+  addPolygons()
+
+leaflet(data = sanjoaquin_kern_sf) |> 
+  addTiles(group = "Open Street Map") |> 
+  addProviderTiles("Esri.WorldImagery", group = "Satellite") |> 
+  addLayersControl(baseGroups = c("Open Street Map", "Satellite"),
+                   options = layersControlOptions(collapsed = FALSE)) |>  
+  addPolygons(fillOpacity = 0)
+
+
+## From app.R:
+# leaflet(visual_aoi_bnd_sf, options = leafletOptions(minZoom = 9, maxZoom = 18)) |>
+#   addTiles(group = "Open Street Map") |> 
+#   addProviderTiles("Esri.WorldImagery", group = "Satellite") |> 
+#   addLayersControl(baseGroups = c("Open Street Map", "Satellite"),
+#                    options = layersControlOptions(collapsed = FALSE)) |>  
+#   addPolygons(fillOpacity = 0)
+
+
+
+
+########################
+## Test out running it locally using shiny::runGitHub
+
+library(shiny)
+runGitHub("cherrychill", "ucanr-igis", subdir = "cherrychill")
+
+
+
+

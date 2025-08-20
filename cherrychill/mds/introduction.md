@@ -8,7 +8,7 @@ This calculator computes accumulated chill portions for a specific location usin
 
 **Notes**
 
-- This calculator only works for San Joaquin County (where the field work to model bark temperature was conducted). Eventually, additional cherry growing areas will be supported.
+- This calculator will work best in the cherry growing regions in San Joaquin and Kern County (where the field work to model bark temperature was conducted).
 
 - This calculator has data for the 2022-2025 growing seasons. 
 
@@ -19,3 +19,5 @@ This calculator computes accumulated chill portions for a specific location usin
 - This calculator is still under development and should not be used for orchard management decisions.
 
 </div>
+
+

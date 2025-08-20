@@ -1,17 +1,26 @@
+###################################################################################
 # Cherry Chill Web App
-app_version_num <- "0.2"
-
-cat(crayon::green("STARTING UP CHERRY CHILL APP VER ", app_version_num, "\n", sep = ""))
-
-# Date: July 3, 2025
 # Authors: Andy Lyons
 # Description: 
 # Reactivity diagram: https://miro.com/app/xxxxxxxxx (coming soon)
 #
 # Live: https://ucanr-igis.shinyapps.io/cherrychill/
+# GH:   https://github.com/ucanr-igis/cherrychill
 ###############################################################################
 
-## We load all the packages needed dynmically, so we can see their impact on memory
+app_version_num <- "0.2.1"
+app_version_date <- as.Date("2025-08-18")
+
+cat(crayon::green("STARTING UP CHERRY CHILL APP VER ", app_version_num, "\n", sep = ""))
+
+## Get the baseline memory used and print it to the console
+## We're doing this in order to diagnose where memory is being used, and how to optimize it.
+library(lobstr)
+memory_used <- lobstr::mem_used()
+cat(" - Memory used before loading packages: ", format(memory_used, "MB"), "\n", sep = "")
+
+## Load the packages dynamically, so we can see their impact on memory
+cat(crayon::green("Loading packages \n"))
 
 req_pkg <- c(
   "shiny",
@@ -43,14 +52,6 @@ req_pkg <- c(
   #"chillR"      ## apparently not needed, saving 36 MB
 )
 
-
-
-## Get the baseline memory used
-library(lobstr)   ## required for mem_used()
-memory_used <- lobstr::mem_used()
-cat(crayon::green("Loading packages \n"))
-cat(" - Memory used before loading packages: ", format(memory_used, "MB"), "\n", sep = "")
-
 for (pkg in req_pkg) {
   if (pkg %in% .packages()) {
     cat(crayon::silver(" - ", pkg, " already on the search path \n", sep = ""))  ## Was probably in the DEPENDS section of a previous package
@@ -62,8 +63,8 @@ for (pkg in req_pkg) {
   }
 }
 
-## To help rsconnect find all dependent packages when we publish this to ShinyApps.io, we repeat the 
-## library calls in traditional library() (should have no impact on memory and be very fast).
+## Next, in order to to help rsconnect find all dependent packages when we publish this to ShinyApps.io, we repeat the 
+## library calls using traditional library() (should have no impact on memory and be very fast).
 ## Details: https://rstudio.github.io/rsconnect/reference/appDependencies.html
 library(shiny); library(data.table); library(dplyr); library(magrittr); library(bslib); library(purrr); library(readr); 
 library(lubridate); library(conflicted); library(cookies); library(crayon); library(FNN); library(glue); library(httr2); 
@@ -76,9 +77,6 @@ cat(" - After loading packages, the memory used is",  format(lobstr::mem_used(),
 conflicted::conflicts_prefer(dplyr::filter, dplyr::select, 
                              lubridate::yday, lubridate::year, lubridate::month, lubridate::hour, lubridate::minute, lubridate::second,
                              .quiet = TRUE)
-
-# browser()
-# conflict_scout()
 
 ## Source scripts in "Rscripts" directory
 ## I have switched to sourcing the scripts rather than put them in the "R" directory and have them auto-run, so that
@@ -114,8 +112,11 @@ my_bs_theme <- bs_theme(version = 5, bootswatch = "flatly")
 years_supported <- 2022:2025
 cropyears <- setNames(paste0("1/1/", years_supported), paste0((years_supported - 1), "-", substr(years_supported, 3, 4)))
 
-## Import the AOI boundary
-sanjoaquin_bnd_sf <- sf::st_read("data/sanjoaquin_bnd.geojson", quiet = TRUE)
+## Import the AOI boundary for the leaflet map
+visual_aoi_bnd_sf <- sf::st_read("data/cherry_regions_bnd.geojson", quiet = TRUE)
+
+## Import the gap-filled CIMIS stations for the leaflet map
+cherry_stns_4leaf_sf <- sf::st_read("data/cherry_cimis.geojson", quiet = TRUE)
 
 ## Tidy up my memory
 rm(list = c("req_pkg", "pkg", "scripts_dir", "scripts_fn", "one_script"))
@@ -151,11 +152,12 @@ ui <- add_cookie_handlers(
                      
                      h3("1. Select location"),
                      
-                     p("Only locations in San Joaquin County are currently supported.", style="font-style:italic;"),
+                     #p("Only locations in San Joaquin County are currently supported.", style="font-style:italic;"),
+                     p("The estimates of tree chill will work best in the cherry growing regions shown in blue. The red dots are CIMIS weather stations.", style="font-style:italic;"),
                      
                      div(leafletOutput("mymap", height = 400), style = "max-width:600px; margin-bottom:1em;"),
                      
-                     textInput("in_coordstxt", label = "Coordinates: ", placeholder = "-120.425, 37.365") |>
+                     textInput("in_coordstxt", label = "Coordinates: ", placeholder = "37.365, -120.425") |>
                          shinytag_add_class("space_above_below") |>
                          shinytag_add_class("iblock") |>
                          helper(type = "markdown",
@@ -327,13 +329,33 @@ server <- function(input, output) {
     ## --- output$mymap (initialize) ----
     ## Add layers and set the initial map extent (called once but never called again after that)
     output$mymap <- renderLeaflet({
-
-        leaflet(sanjoaquin_bnd_sf, options = leafletOptions(minZoom = 9, maxZoom = 18)) |>
-            addTiles(group = "Open Street Map") |> 
-            addProviderTiles("Esri.WorldImagery", group = "Satellite") |> 
-            addLayersControl(baseGroups = c("Open Street Map", "Satellite"),
-                             options = layersControlOptions(collapsed = FALSE)) |>  
-            addPolygons(fillOpacity = 0)
+      
+      leaflet(data = visual_aoi_bnd_sf,
+              options = leafletOptions(minZoom = 6, maxZoom = 18)) |> 
+        addTiles(group = "Open Street Map") |> 
+        addProviderTiles("Esri.WorldImagery", group = "Satellite") |> 
+        addLayersControl(baseGroups = c("Open Street Map", "Satellite"),
+                         options = layersControlOptions(collapsed = FALSE)) |>  
+        addPolygons(fillOpacity = 0, options = pathOptions(interactive = FALSE)) |> 
+        addCircles(data = cherry_stns_4leaf_sf |> select(stid, name), 
+                   stroke = TRUE, color = "#f00", opacity = 1, weight = 4,
+                   fill = TRUE, fillOpacity = 1, popup = ~paste0(stid, ": ", name)) |> 
+        setMaxBounds(lng1 = -124.41, lat1 = 32.5, lng2 = -114.13, lat2 = 42.0) |> 
+        fitBounds(lng1 = -124.41, lat1 = 32.5, lng2 = -114.13, lat2 = 42.0) 
+      
+      # leaflet(data = visual_aoi_bnd_sf) |> 
+      #   setMaxBounds(lng1 = -124.41, lat1 = 32.5, lng2 = -114.13, lat2 = 42.0) |> 
+      #   fitBounds(lng1 = -124.41, lat1 = 32.5, lng2 = -114.13, lat2 = 42.0) |> 
+      #      # -124.40959   32.53444 -114.13121   42.00948 
+      #   addTiles(group = "Open Street Map") |> 
+      #   addProviderTiles("Esri.WorldImagery", group = "Satellite") |> 
+      #   addLayersControl(baseGroups = c("Open Street Map", "Satellite"),
+      #                    options = layersControlOptions(collapsed = FALSE)) |>  
+      #   addPolygons(fillOpacity = 0, options = pathOptions(interactive = FALSE)) |> 
+      #   addCircles(data = cherry_stns_4leaf_sf |> select(stid, name), 
+      #              stroke = TRUE, color = "#f00", opacity = 1, weight = 4,
+      #              fill = TRUE, fillOpacity = 1, popup = ~paste0(stid, ": ", name)) 
+      
     })
     
     ## The following will run whenever input$mymap_click changes
@@ -341,10 +363,10 @@ server <- function(input, output) {
       
       ## Update loc_xy()
       ## This will trigger an observeEvent() to update the location of the marker on the map
-      loc_xy(c(input$mymap_click$lng, input$mymap_click$lat))  
+      loc_xy(c(input$mymap_click$lng, input$mymap_click$lat))
         
       ## Update in_coordstxt
-      updateTextInput(inputId = "in_coordstxt", value = paste(round(loc_xy()[1],5), round(loc_xy()[2],5), sep = ", "))
+      updateTextInput(inputId = "in_coordstxt", value = paste(round(loc_xy()[2],4), round(loc_xy()[1],4), sep = ", "))
     })
     
     ## The following will run whenever in_coordstxt is updated
@@ -363,10 +385,10 @@ server <- function(input, output) {
             ## Parse out the coordinates
             mycoords <- as.numeric(trimws(coords_split[[1]]))
             if (NA %in% mycoords) {
-                output$out_coordstxt_errmsg <- renderText("Enter coordinates in decimal degrees, separated by a comma. Example: -120.226, 36.450")
+                output$out_coordstxt_errmsg <- renderText("Enter the latitude and longitude coordinates in decimal degrees, separated by a comma. Example: 36.450, -120.226")
             } else {
                 output$out_coordstxt_errmsg <- renderText(NULL)
-                loc_xy(c(mycoords[1], mycoords[2]))
+                loc_xy(c(mycoords[2], mycoords[1]))
             }
         }
         
@@ -387,12 +409,13 @@ server <- function(input, output) {
             addMarkers(lng = loc_xy()[1],
                        lat = loc_xy()[2])
         
-        ## Update the error message about being in the county
-        if (cc_pointinpoly(loc_xy(), sanjoaquin_bnd_sf)) {
-            output$out_coordstxt_errmsg <- renderText(NULL)
-        } else {
-            output$out_coordstxt_errmsg <- renderText("Please enter a location within San Joaquin County.")    
-        }
+        # ## Update the error message about being in the county
+        # ## 8/18/2025: We decided at the last meeting to *not* require selecting a point within an aoi
+        # if (cc_pointinpoly(loc_xy(), sanjoaquin_bnd_sf)) {
+        #     output$out_coordstxt_errmsg <- renderText(NULL)
+        # } else {
+        #     output$out_coordstxt_errmsg <- renderText("Please enter a location within San Joaquin County.")    
+        # }
 
         ## Nuke treechill_tbl() which will cause the report DIV to hide
         treechill_tbl(NULL)
@@ -413,9 +436,10 @@ server <- function(input, output) {
       }
       
       ## Location check - within boundary
-      if (!cc_pointinpoly(loc_xy(), sanjoaquin_bnd_sf)) {
-          output$out_txt_cmdrun_errmsg <- renderText("Please enter a location within San Joaquin County.")    
-      }
+      ## 8/18/2025: We decided at the last meeting to *not* require selecting a point within an aoi
+      # if (!cc_pointinpoly(loc_xy(), sanjoaquin_bnd_sf)) {
+      #     output$out_txt_cmdrun_errmsg <- renderText("Please enter a location within San Joaquin County.")    
+      # }
       
       ## Populate treechill_tbl(). This will trigger other updates
       xx_tbl <- tree_chill(
@@ -458,46 +482,35 @@ server <- function(input, output) {
                                 .orch_lat_dd = isolate(loc_xy())[2])
       
       orch_stid <- cc_stn_nn_eal(cherry_stns_sf, orch_sf, nn = 1)
-        
-      treechill_tbl() |>
-        plot_ly(x = ~date_time) |>
-        add_lines(y = ~bark_chill_cum, name = "Bark Chill (Cherry)") |>
-        add_lines(y = ~air_chill_cum, name = paste0("Air Chill (CIMIS #", closest_stn(), ")")) |>
+      
+      treechill_tbl() |> 
+        group_by(date = date(date_time)) |> 
+        summarize(bark_chill_cum_dly = round(sum(bark_chill_cum), 1),
+                  air_chill_cum_dly = round(sum(air_chill_cum), 1)) |> 
+        plot_ly(x = ~date) |>
+        add_lines(y = ~bark_chill_cum_dly, color = I("orange"), name = "Bark Chill (Cherry)") |>
+        add_lines(y = ~air_chill_cum_dly, color = I("blue"), name = paste0("Air Chill (CIMIS #", closest_stn(), ")")) |>
         plotly::layout(title = list(text = "Chill Portions", x = 0.5),
           xaxis = list(title = ""),
           yaxis = list(title = "chill portions"),
           hovermode = 'x',
-          legend = list(orientation = "h",   # show entries horizontally
+          legend = list(orientation = "h",   # show legend entries horizontally
                         xanchor = "center",  # use center of legend as anchor
                         x = 0.5)) |>
         config(
           displayModeBar = TRUE,
           staticPlot = FALSE,       ## default
           showTips = FALSE,         ## ??
-          displaylogo = FALSE       ## don't show the plotly logo
+          displaylogo = FALSE,       ## don't show the plotly logo
+          modeBarButtonsToRemove = c("zoom", "pan", "autoScale", "zoomIn", "zoomOut", "resetScale")
         )
-      
-        # treechill_tbl() |>
-        #     plot_ly(x = ~date_time, y = ~cum_chill_Ttree) |>
-        #     add_lines() |>
-        #     plotly::layout(title = "Tree Chill",
-        #                    xaxis = list(title = ""),
-        #                    yaxis = list(title = "chill portions"),
-        #                    hovermode = 'x') |>
-        #     config(
-        #         displayModeBar = TRUE,
-        #         staticPlot = FALSE,       ## default
-        #         showTips = FALSE,         ## ??
-        #         displaylogo = FALSE       ## don't show the plotly logo
-        #     )
-        
         
     })
     
     #----------- output$outtxt_coords (render) ------------------
     output$outtxt_coords <- renderText({
       req(loc_xy())
-      paste(round(loc_xy(), 2), collapse = ", ")
+      paste(round(loc_xy(), 2)[c(2,1)], collapse = ", ")
     })
     
     #----------- output$closest_stn() (reactive) ------------------

@@ -2,9 +2,9 @@
 
 ---
 
-Enter coordinates in decimal degrees separated by a comma. Longitude should come first.
+Enter the latitude-longitude coordinates in decimal degrees separated by a comma. Latitude should come first.
 
-Example: -120.226, 36.450
+Example: 36.450, -120.226
 
 
 

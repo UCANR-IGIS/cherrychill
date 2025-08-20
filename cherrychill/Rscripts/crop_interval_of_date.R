@@ -10,12 +10,12 @@ crop_interval_of_date <- function(.date_time) {
   if (.date_time < endos) {
     lubridate::interval(
       start = dmy(paste("01-Nov", year(.date_time) - 1, sep = "-")),
-      end = dmy(paste("07-Apr", year(.date_time), sep = "-"))
+      end = dmy(paste("07-Apr", year(.date_time), sep = "-")) 
     )
   } else {
     lubridate::interval(
       start = dmy(paste("01-Nov", year(.date_time), sep = "-")),
-      end = dmy(paste("07-Apr", year(.date_time) + 1, sep = "-"))
+      end = dmy(paste("07-Apr", year(.date_time) + 1, sep = "-")) 
     )
   }
 }

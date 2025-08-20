@@ -165,10 +165,17 @@ tree_chill <- function(
       paste0("stn_", ABC_stns)
     )
   
+  # browser()
+  # When you run 36.6746, -120.4618, get an error:
+  # Object 'st_ppt_mm_C' not found
+  
   # Get relevant stations-dates and add ppt MA =====
+  
   ABC_stn_dat1 <- stn_data |> 
     dplyr::filter(
-      date_time %within% crop_intrvl,
+      # date_time %within% crop_intrvl,     ## this results in a single measurement at midnight on the last day
+      date_time >= int_start(crop_intrvl),
+      date_time <= int_end(crop_intrvl) + (3600 * 24 - 1), ## need to extend to 11:59pm 
       station_n %in% orch_stids
     ) %>% 
     pivot_wider(
