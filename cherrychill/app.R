@@ -105,7 +105,7 @@ cat(" - After sourcing all scripts, the memory used is",  format(lobstr::mem_use
 # gam_T_tree_0, "164.1 Mb" 
 
 ## Select a bootstrap theme
-my_bs_theme <- bs_theme(version = 5, bootswatch = "flatly")
+my_bs_theme <- bs_theme(version = 5, bootswatch = "sandstone")
 
 ## Define the values for the crop years select input
 ## We use a named vector where the values are date-strings and the names are labels which appear in the dropdown
@@ -127,9 +127,9 @@ cat(" - At the end of the preamble, memory used is",  format(lobstr::mem_used(),
 ## Setup UI
 ui <- add_cookie_handlers(
     fluidPage(
-      useBusyIndicators(),
+      #useBusyIndicators(),   ## this was resulting in an spinner that doesn't stop
       style = "max-width: 680px; padding:15px;",
-        theme = my_bs_theme,
+      theme = my_bs_theme,
         
         tags$head(
             tags$link(rel = "stylesheet", type = "text/css", href = "cherrychill.css"),
@@ -150,6 +150,14 @@ ui <- add_cookie_handlers(
                      
                      includeMarkdown("mds/introduction.md"),
                      
+                     tags$details(
+                       tags$summary(
+                         "Additional Notes",
+                         id = "notes"
+                       ),
+                       includeMarkdown("mds/notes.md")
+                     ),
+                     
                      h3("1. Select location"),
                      
                      #p("Only locations in San Joaquin County are currently supported.", style="font-style:italic;"),
@@ -164,7 +172,7 @@ ui <- add_cookie_handlers(
                                 icon = "circle-info",
                                 content = "coordinates",
                                 buttonLabel = "OK",
-                                size = "s"),
+                                size = "m"),
                      
                      textOutput("out_coordstxt_errmsg") |> shinytag_add_class("error-msg"),
                      
@@ -238,11 +246,12 @@ ui <- add_cookie_handlers(
             ),
 
             tabPanel("Contact Us",
-                     h3("Contact Us"),
-                     p("A feedback form (i.e., an embedded Google Form) or email link could go here.")
-                     # div(HTML("<iframe src='https://docs.google.com/forms/d/e/1FAIpQLSfbm9-myWrOQ-mokE8OLw84D2_O3h4VqC_CHFygMieLhqtneQ/viewform?embedded=true' width='700' height='1200' frameborder='0' marginheight='0' marginwidth='0'>Loading…</iframe>"), 
-                     #     style="max-width:900px;")
-                     
+                     # h3("Contact Us"),
+                     div(tags$iframe("Loading...",
+                                     src = "https://docs.google.com/forms/d/e/1FAIpQLSd6Flaf5FzFV4YcGV2TYaaH9le4qbtOfIujuMh7CBbjcJZyUQ/viewform?embedded=true",
+                                     width = "700", height = "1150",
+                                     frameborder = "0", marginheight = "0", marginwidth = "0"),
+                         style="max-width:900px;")
             )
             
         ), ## end of NavBarPage
@@ -253,31 +262,25 @@ ui <- add_cookie_handlers(
             column(12,
                    id = "footer",
                    style = "margin:2em 0; padding-top:1em; border-top:4px solid #ddd;",
-                   div(style="display:flex; flex-wrap:wrap; justify-content:flex-start; align-items:start; margin-bottom:24px; border:none;",
+                   div(style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:start; margin-bottom:24px; border:none;",
                        
                        div(style="border:none; padding:12px;",
                            a(href = "https://www.plantsciences.ucdavis.edu/", target="_blank", rel="noopener", 
-                             img(src="ucd-plantsciences-logo_315x50.png")))
+                             img(src="ucd-plantsciences-logo_315x50.png"))),
                        
-                       # div(style="border:none; padding:12px;",
-                       #     a(href = "https://ucanr.edu/", target="_blank", rel="noopener",
-                       #       img(src=i18n()$t("ucanr_2019_en_280x36x256.png"))))
-                       
-                       # div(style="border:none; padding:12px;",
-                       #     a(style = "text-decoration:none; font-size:80%; font-style:italic;",
-                       #       href = "https://igis.ucanr.edu/", target="_blank", rel="noopener",
-                       #       
-                       #       div(
-                       #           style = "display:flex; justify-content:center; align-items:center; column-gap:8px; border:none;",
-                       #           div(style = "border:none; text-align:right; color:#333;",
-                       #               i18n()$t("Another R-Shiny app from:")),
-                       #           div(style = "border:none;",
-                       #               img(src = "igis-shld-wht_bg-trans_40x40.png", height="40", width="40"))
-                       #       )
-                       #       
-                       #     )
-                       #     
-                       # )
+                       div(
+                         style = "padding:12px;",
+                         a(id = "igis",
+                           href = "https://igis.ucanr.edu/", target="_blank", rel="noopener",
+                           div(
+                             style="display:flex; flex-wrap:wrap; align-items:center;",
+                             div("Another R-Shiny", br(), "app from IGIS", 
+                                 style = "font-size:90%; font-style:italic; text-align:center;"),
+                             div(img(src = "igis-logo_60x60.png", height="60", width="60",
+                                     style = "padding-left:5px;"))
+                             )  
+                           )
+                       )
                        
                    )  ## end footer main div
             )
@@ -342,19 +345,6 @@ server <- function(input, output) {
                    fill = TRUE, fillOpacity = 1, popup = ~paste0(stid, ": ", name)) |> 
         setMaxBounds(lng1 = -124.41, lat1 = 32.5, lng2 = -114.13, lat2 = 42.0) |> 
         fitBounds(lng1 = -124.41, lat1 = 32.5, lng2 = -114.13, lat2 = 42.0) 
-      
-      # leaflet(data = visual_aoi_bnd_sf) |> 
-      #   setMaxBounds(lng1 = -124.41, lat1 = 32.5, lng2 = -114.13, lat2 = 42.0) |> 
-      #   fitBounds(lng1 = -124.41, lat1 = 32.5, lng2 = -114.13, lat2 = 42.0) |> 
-      #      # -124.40959   32.53444 -114.13121   42.00948 
-      #   addTiles(group = "Open Street Map") |> 
-      #   addProviderTiles("Esri.WorldImagery", group = "Satellite") |> 
-      #   addLayersControl(baseGroups = c("Open Street Map", "Satellite"),
-      #                    options = layersControlOptions(collapsed = FALSE)) |>  
-      #   addPolygons(fillOpacity = 0, options = pathOptions(interactive = FALSE)) |> 
-      #   addCircles(data = cherry_stns_4leaf_sf |> select(stid, name), 
-      #              stroke = TRUE, color = "#f00", opacity = 1, weight = 4,
-      #              fill = TRUE, fillOpacity = 1, popup = ~paste0(stid, ": ", name)) 
       
     })
     

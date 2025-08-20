@@ -17,6 +17,11 @@ div.caveats {
   padding:0.5em;
 }
 
+summary#notes {
+  text-align:center;
+  color:navy;
+  margin:1em 0;
+}
 
 div.error-msg {color:red; margin:1em 0;}
 
@@ -35,6 +40,11 @@ label#intxt_cropyear-label {
 
 div#mymap {
   cursor: crosshair !important;
+}
+
+a#igis {
+  color: navy;
+  text-decoration: none;
 }
 
 /* ------

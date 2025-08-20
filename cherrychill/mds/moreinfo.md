@@ -1,4 +1,4 @@
-### Additional Info
+### More Info
 
 Accumulated winter chill is an important measure for cherry and other tree crops because it predicts when the trees are likely to bloom in the spring. This calculator reports the accumulated chill portions using two methods:
 
