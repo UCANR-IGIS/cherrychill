@@ -160,17 +160,19 @@ tree_chill <- function(
       LETTERS[1:3]
     )
   
+  ## Create a named vector that will be used below as the 
+  ## pattern argument in str_replace_all().
+  ##  - Note how we append '$' to the end of each name, which 
+  ##    when interpreted as a regular expression in str_replace_all()
+  ##    prevents an error in the case where the names overlap
+  ##    (e.g., stn_2 and stn_205). For an example of this, compute
+  ##    chill for 36.6746, -120.4618, 
   stn_letter4number <- LETTERS[1:3] |> 
     magrittr::set_names(
-      paste0("stn_", ABC_stns)
+      paste0("stn_", ABC_stns, "$")
     )
   
-  # browser()
-  # When you run 36.6746, -120.4618, get an error:
-  # Object 'st_ppt_mm_C' not found
-  
-  # Get relevant stations-dates and add ppt MA =====
-  
+  # ====== Get relevant stations-dates and add ppt MA =====
   ABC_stn_dat1 <- stn_data |> 
     dplyr::filter(
       # date_time %within% crop_intrvl,     ## this results in a single measurement at midnight on the last day

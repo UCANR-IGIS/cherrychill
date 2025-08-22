@@ -8,8 +8,8 @@
 # GH:   https://github.com/ucanr-igis/cherrychill
 ###############################################################################
 
-app_version_num <- "0.2.1"
-app_version_date <- as.Date("2025-08-18")
+app_version_num <- "0.2.2"
+app_version_date <- as.Date("2025-08-20")
 
 cat(crayon::green("STARTING UP CHERRY CHILL APP VER ", app_version_num, "\n", sep = ""))
 
