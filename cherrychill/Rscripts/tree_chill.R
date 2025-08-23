@@ -76,9 +76,14 @@
 # Read model for prediction
 # (If needed for memory management, this could be read in tree_chill() only)
 gam_T_tree_0 <- read_rds("model/gam_T_tree_0.xz.rds")
+# object.size(gam_T_tree_0) |>  format(units = "Mb")
+# gam_T_tree_0 is 164.1 MB
 
 # Get station data already corrected and gap-filled for 37 stations (selected by Emilio for the cherry growing regions)
 stn_data <- read_rds("data/cherry_cimis_data_2021_25.gzip.rds")
+# object.size(stn_data) |>  format(units = "Mb")
+# stn_data is 153 MB
+
 
 # ===== Get station metadata =====
 ## AL: because CIMIS is unstable, I have turned caching back on, using the 'data' directory

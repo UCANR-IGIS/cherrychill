@@ -13,11 +13,16 @@ app_version_date <- as.Date("2025-08-20")
 
 cat(crayon::green("STARTING UP CHERRY CHILL APP VER ", app_version_num, "\n", sep = ""))
 
+## Track memory?
+trckmem <- TRUE
+
 ## Get the baseline memory used and print it to the console
 ## We're doing this in order to diagnose where memory is being used, and how to optimize it.
 library(lobstr)
-memory_used <- lobstr::mem_used()
-cat(" - Memory used before loading packages: ", format(memory_used, "MB"), "\n", sep = "")
+if (trckmem) {
+  memory_used <- lobstr::mem_used()
+  cat(" - Memory used before loading packages: ", format(memory_used, "MB"), "\n", sep = "")
+}
 
 ## Load the packages dynamically, so we can see their impact on memory
 cat(crayon::green("Loading packages \n"))
@@ -48,7 +53,8 @@ req_pkg <- c(
   #"tidyverse",   ## individual tidyverse packages loaded, small memory savings 
   "tidyr",
   "tsibble",
-  "ChillModels"
+  "ChillModels",
+  "shinycssloaders"
   #"chillR"      ## apparently not needed, saving 36 MB
 )
 
@@ -57,9 +63,11 @@ for (pkg in req_pkg) {
     cat(crayon::silver(" - ", pkg, " already on the search path \n", sep = ""))  ## Was probably in the DEPENDS section of a previous package
   } else {
     suppressPackageStartupMessages(library(pkg, character.only = TRUE, warn.conflicts = FALSE)) 
-    memory_used_now <- lobstr::mem_used()
-    cat(crayon::silver(" - loaded ", pkg, " (memory used = ", format(memory_used_now - memory_used, "MB"), ")\n", sep = ""))
-    memory_used <- memory_used_now
+    if (trckmem) {
+      memory_used_now <- lobstr::mem_used()
+      cat(crayon::silver(" - loaded ", pkg, " (memory used = ", format(memory_used_now - memory_used, "MB"), ")\n", sep = ""))
+      memory_used <- memory_used_now
+    }
   }
 }
 
@@ -69,9 +77,9 @@ for (pkg in req_pkg) {
 library(shiny); library(data.table); library(dplyr); library(magrittr); library(bslib); library(purrr); library(readr); 
 library(lubridate); library(conflicted); library(cookies); library(crayon); library(FNN); library(glue); library(httr2); 
 library(leaflet); library(plotly); library(readr); library(sf); library(shinyhelper); library(stringr); library(tidyr); 
-library(tsibble); library(ChillModels)
+library(tsibble); library(ChillModels); library(shinycssloaders)
 
-cat(" - After loading packages, the memory used is",  format(lobstr::mem_used(), "MB"), "\n\n")
+if (trckmem) cat(" - After loading packages, the memory used is",  format(lobstr::mem_used(), "MB"), "\n\n")
 
 ## Next, declare session-wide function preferences
 conflicted::conflicts_prefer(dplyr::filter, dplyr::select, 
@@ -79,7 +87,7 @@ conflicted::conflicts_prefer(dplyr::filter, dplyr::select,
                              .quiet = TRUE)
 
 ## Source scripts in "Rscripts" directory
-## I have switched to sourcing the scripts rather than put them in the "R" directory and have them auto-run, so that
+## I have switched to sourcing the scripts in a loop rather than put them in the "R" directory and have them auto-run, so that
 ## I can track the size (memory) of the objects created by them (notably datasets and the GAM model). When they auto-run,
 ## they don't appear in ls() so I'm not sure which environment they get stored in.
 cat(crayon::green("Sourcing scripts \n"))
@@ -93,9 +101,9 @@ scripts_fn <- list.files(scripts_dir)
 for (one_script in scripts_fn) {
   cat(crayon::silver(" - Sourcing ", one_script, "\n", sep = ""))
   source(paste0(scripts_dir, "/", one_script), local = TRUE)
-  cat(crayon::silver("   - Done. Memory used is now ",  format(lobstr::mem_used(), "MB"), "\n", sep = ""))
+  if (trckmem) cat(crayon::silver("   - Done. Memory used is now ",  format(lobstr::mem_used(), "MB"), "\n", sep = ""))
 }
-cat(" - After sourcing all scripts, the memory used is",  format(lobstr::mem_used(), "MB"), "\n\n")
+if (trckmem) cat(crayon::silver(" - After sourcing all scripts, the memory used is",  format(lobstr::mem_used(), "MB")), "\n\n")
 
 # View objects in memory
 # sort( sapply(ls(),function(x) format(object.size(get(x)), units = "Mb")))
@@ -122,7 +130,7 @@ cherry_stns_4leaf_sf <- sf::st_read("data/cherry_cimis.geojson", quiet = TRUE)
 rm(list = c("req_pkg", "pkg", "scripts_dir", "scripts_fn", "one_script"))
 
 cat(crayon::green("Setup Complete \n"))
-cat(" - At the end of the preamble, memory used is",  format(lobstr::mem_used(), "MB"), "\n\n")
+if (trckmem) cat(" - At the end of the preamble, memory used is",  format(lobstr::mem_used(), "MB"), "\n\n")
 
 ## Setup UI
 ui <- add_cookie_handlers(
@@ -351,8 +359,7 @@ server <- function(input, output) {
     ## The following will run whenever input$mymap_click changes
     observeEvent(input$mymap_click, {
       
-      ## Update loc_xy()
-      ## This will trigger an observeEvent() to update the location of the marker on the map
+      ## Update loc_xy(). This will trigger an observeEvent() to update the location of the marker on the map
       loc_xy(c(input$mymap_click$lng, input$mymap_click$lat))
         
       ## Update in_coordstxt
@@ -431,20 +438,18 @@ server <- function(input, output) {
       #     output$out_txt_cmdrun_errmsg <- renderText("Please enter a location within San Joaquin County.")    
       # }
       
+      showPageSpinner()
+      
       ## Populate treechill_tbl(). This will trigger other updates
       xx_tbl <- tree_chill(
         .orch_name = "My Orchard", 
-          .orch_lat_dd = loc_xy()[2], 
-          .orch_lon_dd = loc_xy()[1], 
-          .date = input$intxt_cropyear
-        ) |> 
+        .orch_lat_dd = loc_xy()[2], 
+        .orch_lon_dd = loc_xy()[1], 
+        .date = input$intxt_cropyear
+      ) |> 
         ungroup() |> 
         select(date_time, tree_temp = pred_avg_t_tree, air_temp = st_t_air_C_A,
                bark_chill_cum = cum_chill_pTtree, air_chill_cum = cum_chill_st_t_air_A)
-      
-      cat(crayon::green(" - After running tree_chill(), memory used is",  format(lobstr::mem_used(), "MB"), "\n"))
-      
-      treechill_tbl(xx_tbl)
       
       ## Other columns returned by tree_chill():
       # [1] "date_time"            "hour_pst"             "crop_year"            "hour_wave"            "doy_wave"             "st_et_mm_B"           "st_et_mm_C"          
@@ -456,6 +461,10 @@ server <- function(input, output) {
       # [43] "st_slr_A_lag1"        "st_slr_A_lag2"        "st_slr_A_lag3"        "st_t_air_A_lag1"      "st_t_air_A_lag2"      "st_t_air_A_lag3"      "st_t_soil_A_lag1"    
       # [50] "st_t_soil_A_lag2"     "st_t_soil_A_lag3"     "st_wind_A_lag1"       "st_wind_A_lag2"       "st_wind_A_lag3"       "cum_slr_A"            "orch"                
       # [57] "pred_avg_t_tree"      "chill_pTtree"         "chill_st_t_air_A"     "cum_chill_pTtree"     "cum_chill_st_t_air_A"
+      
+      cat(crayon::green(" - After running tree_chill(), memory used is",  format(lobstr::mem_used(), "MB"), "\n"))
+      treechill_tbl(xx_tbl)
+      hidePageSpinner()
       
     })
     
